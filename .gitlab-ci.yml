@@ -1,0 +1,97 @@
+stages:
+  - package
+  - build
+  - deploy
+  - notify
+
+variables:
+  REGISTRY: "registry.cn-hangzhou.aliyuncs.com"
+  REGISTRY_NAMESPACE: "life-project"
+  VERSION: "v0.0.1"
+  IMAGE_NAME: ${REGISTRY}/${REGISTRY_NAMESPACE}/${CI_PROJECT_NAME}:${CI_PIPELINE_ID}
+  SSHPASS: "lvxiang2022"
+
+cache: &global_cache # `key`=`prefix`+`-`+`SHA(files)`
+  key:
+    prefix: ${CI_COMMIT_REF_SLUG}
+    files:
+      - "package-lock.json"
+      - "package.json"
+  paths:
+    - ".next/"
+    - "node_modules/"
+
+node-build:
+  image: registry.cn-hangzhou.aliyuncs.com/kpublic/node:20-alpine
+  stage: package
+  script:
+    - npm config set registry https://registry.npmmirror.com
+    - npm i
+    - npm run build
+  cache:
+    <<: *global_cache
+  only:
+    - master
+  tags:
+    - common-package-docker
+
+docker-build:
+  stage: build
+  cache:
+    <<: *global_cache
+    policy: pull
+  script:
+    - docker login -u ${REGISTRY_USER} -p ${REGISTRY_PASSWORD} ${REGISTRY}
+    - docker build -t ${IMAGE_NAME} .
+    - docker push ${IMAGE_NAME}
+  only:
+    - master
+  tags:
+    - common-package-docker
+
+deploy:
+  stage: deploy
+  image: registry.cn-hangzhou.aliyuncs.com/kpublic/alpine:latest
+  before_script:
+    - echo $DEV_SERVER_PRIVATE_KEY
+    - echo $DEV_SERVER_IP
+    - eval $(ssh-agent -s)
+    - echo "$DEV_SERVER_PRIVATE_KEY" | tr -d '\r' | ssh-add - > /dev/null
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - '[[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config'
+  script:
+    - ssh -o StrictHostKeyChecking=no -l ubuntu $DEV_SERVER_IP "sudo docker stop starwars-demo && sudo docker rm starwars-demo && sudo docker run --name starwars-demo -d -p 8888:3000 ${IMAGE_NAME}"
+  only:
+    - master
+  tags:
+    - common-package-docker
+
+notifySuccess:
+  image: registry.cn-hangzhou.aliyuncs.com/kpublic/curl:latest
+  stage: notify
+  when: on_success
+  cache: {}
+  script:
+    - curl 'https://oapi.dingtalk.com/robot/send?access_token=$DD_ACCESS_TOKEN' -H 'Content-Type:application/json' -d "{\"msgtype\":\"markdown\",\"markdown\":{\"title\":\"构建通知\",\"text\":\"# [${CI_COMMIT_BRANCH}_${CI_PROJECT_NAME}](${CI_PROJECT_URL})\n---\n- 流水线：[#${CI_PIPELINE_ID}](${CI_PROJECT_URL}/-/pipelines/${CI_PIPELINE_ID})\n- 状态：<font color=#52c41a>成功</font>\n- 执行人：${GITLAB_USER_EMAIL}\"}}"
+  tags:
+    - common-package-docker
+  only:
+    - design
+    - dev
+    - master
+
+
+notifyFailed:
+  image: registry.cn-hangzhou.aliyuncs.com/kpublic/curl:latest
+  stage: notify
+  when: on_failure
+  cache: {}
+  script:
+    - curl 'https://oapi.dingtalk.com/robot/send?access_token=$DD_ACCESS_TOKEN' -H 'Content-Type:application/json' -d "{\"msgtype\":\"markdown\",\"markdown\":{\"title\":\"构建通知\",\"text\":\"# [${CI_COMMIT_BRANCH}_${CI_PROJECT_NAME}](${CI_PROJECT_URL})\n---\n- 流水线：[#${CI_PIPELINE_ID}](${CI_PROJECT_URL}/-/pipelines/${CI_PIPELINE_ID})\n- 状态：<font color=#f5222d>失败</font>\n- 执行人：${GITLAB_USER_EMAIL}\"}}"
+  tags:
+    - common-package-docker
+  only:
+    - design
+    - dev
+    - master

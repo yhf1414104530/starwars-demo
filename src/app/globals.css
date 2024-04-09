@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 214, 219, 220;
+  --background-end-rgb: 255, 255, 255;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-rgb: 255, 255, 255;
+    --background-start-rgb: 0, 0, 0;
+    --background-end-rgb: 0, 0, 0;
+  }
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+}
+
+@layer utilities {
+
+}
+/* 设置全局滚动条的宽度和背景颜色 */
+::-webkit-scrollbar {
+  height: 8px;
+  width: 8px; /* 或者使用 'width' 对于垂直滚动条, 'height' 对于水平滚动条 */
+  background-color: #F5F5F5; /* 滚动条的背景颜色 */
+}
+
+/* 设置全局滚动条滑块的样式 */
+::-webkit-scrollbar-thumb {
+  background-color: #a0b4da; /* 滑块的背景颜色 */
+  border-radius: 8px; /* 滑块的圆角 */
+  border: 2px solid transparent; /* 为滑块添加透明边框 */
+  background-clip: padding-box; /* 防止背景延伸到边框区域 */
+}
+
+/* 设置全局滚动条轨道的样式 */
+::-webkit-scrollbar-track {
+  background-color: #F5F5F5; /* 轨道的背景颜色 */
+  border-radius: 4px; /* 轨道的圆角 */
+}
+
+/* 当滚动条处于悬停状态时，设置全局滑块的样式 */
+::-webkit-scrollbar-thumb:hover {
+  background-color: #6B7280; /* 滑块的背景颜色（悬停状态） */
+}
